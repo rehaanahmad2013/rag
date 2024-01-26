@@ -58,11 +58,11 @@ class Model:
                         {user} [/INST] """
 
     @method()
-    def generate(self, user_questions):
+    def generate(self, user_inputs):
         from vllm import SamplingParams
 
         prompts = [
-            self.template.format(system="", user=q) for q in user_questions
+            self.template.format(system=q[0], user=q[1]) for q in user_inputs
         ]
 
         sampling_params = SamplingParams(
@@ -103,8 +103,6 @@ async def retrievedoc(query: str) -> set[str]:
 def main():
     model = Model()
     questions = "If I want to treat exceptions as successful results and aggregate them in the results list, what do I pass in?"
-    
-
     result = retrievedoc.remote(questions)
 
     foundstr = result[0].page_content
@@ -114,12 +112,12 @@ def main():
     context = actualstr[max(0, getIndex - 200): min(getIndex + 200, len(actualstr))]
 
 
-    mistralq = ['You are to answer questions about the documentation for a company called Modal Labs. '
+    mistralq = [('You are to answer questions about the documentation for a company called Modal Labs. '
               + 'We will provide relevant information from the docs to answer the question. \n'
               + 'Docs: \n'
-              + context 
-              + '\n Question: '
-              + questions]
+              + context, 
+                questions
+              )] 
     
     model.generate.remote(mistralq)
     

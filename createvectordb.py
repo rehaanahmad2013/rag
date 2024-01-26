@@ -20,6 +20,8 @@ playwright_image = modal.Image.debian_slim(
     "playwright install chromium",
 )
 
+chunk_size = 300
+
 @stub.function(image=playwright_image)
 async def list_links(url: str) -> set[str]:
     from playwright.async_api import async_playwright
@@ -70,8 +72,6 @@ async def uploadchunk(html: str) -> set[str]:
     ATLAS_VECTOR_SEARCH_INDEX_NAME = "vector_index"
     MONGODB_COLLECTION = client[DB_NAME][COLLECTION_NAME]
 
-    # Text splitter
-    chunk_size = 300
     chunk_overlap = 50
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", " ", ""],
