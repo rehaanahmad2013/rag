@@ -20,7 +20,7 @@ playwright_image = modal.Image.debian_slim(
     "playwright install chromium",
 )
 
-chunk_size = 300
+CHUNK_SIZE = 300
 
 @stub.function(image=playwright_image)
 async def list_links(url: str) -> set[str]:
@@ -54,10 +54,10 @@ async def get_content(url: str) -> set[str]:
     except:
         html = ""
 
-    return html
+    return (html, url)
 
 @stub.function(image=langchain_image, secret=modal.Secret.from_name("takehome"))
-async def uploadchunk(html: str) -> set[str]:
+async def uploadchunk(html: tuple) -> set[str]:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_openai import OpenAIEmbeddings
     from pymongo.mongo_client import MongoClient
@@ -68,21 +68,21 @@ async def uploadchunk(html: str) -> set[str]:
     client = MongoClient(uri, tlsCAFile=certifi.where())
 
     DB_NAME = "vecdb"
-    COLLECTION_NAME = "modalcollect"
+    COLLECTION_NAME = "modalcollect_" + str(CHUNK_SIZE)
     ATLAS_VECTOR_SEARCH_INDEX_NAME = "vector_index"
     MONGODB_COLLECTION = client[DB_NAME][COLLECTION_NAME]
 
     chunk_overlap = 50
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", " ", ""],
-        chunk_size=chunk_size,
+        chunk_size=CHUNK_SIZE,
         chunk_overlap=chunk_overlap,
         length_function=len,
     )
 
     chunks = text_splitter.create_documents(
-        texts=[html],
-        metadatas=[{"source": html}])
+        texts=[html[0]],
+        metadatas=[{"source": html[0], "link": html[1]}])
 
     MongoDBAtlasVectorSearch.from_documents(
         documents=chunks,
@@ -113,7 +113,7 @@ def run():
 
     html_arr = []
     for html in get_content.map(docLinks):
-        if len(html) > 0:
+        if len(html[0]) > 0:
             html_arr.append(html)
 
     for x in uploadchunk.map(html_arr):

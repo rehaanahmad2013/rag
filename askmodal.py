@@ -8,7 +8,10 @@ OPENAI_KEY = os.getenv("OPENAI_KEY")
 
 MODEL_DIR = "/model"
 BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
+COLLECTION_NAME = "modalcollect_300"
 
+ADDITIONAL_CONTEXT = 200
+TOP_K = 3
 
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
@@ -71,18 +74,16 @@ class Model:
             max_tokens=800,
             presence_penalty=1.15,
         )
+
         result = self.llm.generate(prompts, sampling_params)
-        num_tokens = 0
         for output in result:
-            num_tokens += len(output.outputs[0].token_ids)
-            print(output.prompt, output.outputs[0].text, "\n\n", sep="")
-        print(f"Generated {num_tokens} tokens")
+            print(output.outputs[0].text)
+
 
 @stub.function(image=langchain_image, secret=Secret.from_name("takehome"))
 async def retrievedoc(query: str) -> set[str]:
     uri = "mongodb+srv://rehaan:" + os.environ['MONGO_PASSWORD'] + "@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
     DB_NAME = "vecdb"
-    COLLECTION_NAME = "modalcollect"
     ATLAS_VECTOR_SEARCH_INDEX_NAME = "vector_index"
 
     from langchain_community.vectorstores import MongoDBAtlasVectorSearch
@@ -95,29 +96,36 @@ async def retrievedoc(query: str) -> set[str]:
         index_name=ATLAS_VECTOR_SEARCH_INDEX_NAME,
     )
 
-    results = vector_search.similarity_search(query)
+    results = vector_search.similarity_search(query, k=TOP_K)
     return results
 
 # ## Run the model
 @stub.local_entrypoint()
 def main():
     model = Model()
-    questions = "If I want to treat exceptions as successful results and aggregate them in the results list, what do I pass in?"
-    result = retrievedoc.remote(questions)
+    # questions = "If I want to treat exceptions as successful results and aggregate them in the results list, what do I pass in?"
+    questions = "How do I use modal serve to serve a web endpoint?"
+    results = retrievedoc.remote(questions)
+    contextStr = ""
+    
+    for i in range(0, len(results)):
+        foundstr = results[i].page_content
+        actualstr = results[i].metadata['source']
+        getIndex = actualstr.index(foundstr)
+        context = actualstr[max(0, getIndex - ADDITIONAL_CONTEXT): min(getIndex + ADDITIONAL_CONTEXT, len(actualstr))]
+        contextStr += (context + "\n")
 
-    foundstr = result[0].page_content
-    actualstr = result[0].metadata['source']
-    getIndex = actualstr.index(foundstr)
-
-    context = actualstr[max(0, getIndex - 200): min(getIndex + 200, len(actualstr))]
-
-
-    mistralq = [('You are to answer questions about the documentation for a company called Modal Labs. '
-              + 'We will provide relevant information from the docs to answer the question. \n'
-              + 'Docs: \n'
+    mistralq = [('You are to answer a user question about the documentation for Modal Labs, a company that helps people run code in the cloud. '
+              + 'We will provide sections of Modal Labs documentation to help you answer the question. Note that not all of this information may be relevant for answering the question. \n'
+              + 'Documentation: \n'
               + context, 
                 questions
               )] 
     
     model.generate.remote(mistralq)
+
+    print("Some relevant links: ")
+    for i in range(0, len(results)):
+        print("[" + str(i) + "] " + results[i].metadata['link'])
+
     
