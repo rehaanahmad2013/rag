@@ -1,25 +1,6 @@
-# # Fast inference with vLLM (Mistral 7B)
-#
-# In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
-# to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
-#
-# `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
-# walks through setting up an environment that works with `vLLM ` for basic inference.
-#
-# We are running the [Mistral 7B Instruct](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1) model here, which is an instruct fine-tuned version of Mistral's 7B model best fit for conversation.
-# You can expect 20 second cold starts and well over 100 tokens/second. The larger the batch of prompts, the higher the throughput.
-# For example, with the 60 prompts below, we can produce 19k tokens in 15 seconds, which is around 1.25k tokens/second.
-#
-# To run
-# [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
-# simply replace the model name in the download step. You may also need to enable `trust_remote_code` for MPT models (see comment below)..
-#
-# ## Setup
-#
-# First we import the components we need from `modal`.
+# code taken from vllm modal tutorial 
 
 import os
-# from dotenv import load_dotenv
 from modal import Image, Secret, Stub, method
 
 MONGO_PASSWORD = os.getenv('MONGO_PASSWORD')
@@ -47,7 +28,6 @@ image = (
         "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
     .pip_install("vllm==0.2.5", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
-    # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_folder,
@@ -119,17 +99,13 @@ async def retrievedoc(query: str) -> set[str]:
     return results
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
-# sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
 @stub.local_entrypoint()
 def main():
     model = Model()
-    questions = [
-        # Coding questions
-        "If I want to treat exceptions as successful results and aggregate them in the results list, what do I pass in?",
-    ]
+    questions = "If I want to treat exceptions as successful results and aggregate them in the results list, what do I pass in?"
+    
 
-    result = retrievedoc.remote(questions[0])
+    result = retrievedoc.remote(questions)
 
     foundstr = result[0].page_content
     actualstr = result[0].metadata['source']
@@ -143,7 +119,7 @@ def main():
               + 'Docs: \n'
               + context 
               + '\n Question: '
-              + questions[0]]
+              + questions]
     
     model.generate.remote(mistralq)
     

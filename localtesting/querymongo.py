@@ -1,5 +1,5 @@
 from pymongo.mongo_client import MongoClient
-uri = "mongodb+srv://rehaan:BK9MEnBVz59CZbkB@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
+uri = "mongodb+srv://rehaan:<password>@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
 
 # Create a new client and connect to the server
 # client = MongoClient(uri, tlsCAFile=certifi.where())
@@ -23,7 +23,7 @@ from langchain_openai import OpenAIEmbeddings
 vector_search = MongoDBAtlasVectorSearch.from_connection_string(
     uri,
     DB_NAME + "." + COLLECTION_NAME,
-    OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key="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", disallowed_special=()),
+    OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key="<KEY-HERE>", disallowed_special=()),
     index_name=ATLAS_VECTOR_SEARCH_INDEX_NAME,
 )
 

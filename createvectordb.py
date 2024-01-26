@@ -54,7 +54,7 @@ async def get_content(url: str) -> set[str]:
 
     return html
 
-@stub.function(image=langchain_image)
+@stub.function(image=langchain_image, secret=modal.Secret.from_name("takehome"))
 async def uploadchunk(html: str) -> set[str]:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_openai import OpenAIEmbeddings
@@ -62,7 +62,7 @@ async def uploadchunk(html: str) -> set[str]:
     import certifi 
     from langchain_community.vectorstores import MongoDBAtlasVectorSearch
 
-    uri = "mongodb+srv://rehaan:BK9MEnBVz59CZbkB@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
+    uri = "mongodb+srv://rehaan:" + os.environ['MONGO_PASSWORD'] + "@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
     client = MongoClient(uri, tlsCAFile=certifi.where())
 
     DB_NAME = "vecdb"
@@ -86,7 +86,7 @@ async def uploadchunk(html: str) -> set[str]:
 
     MongoDBAtlasVectorSearch.from_documents(
         documents=chunks,
-        embedding=OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key="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", disallowed_special=()),
+        embedding=OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key=os.environ['OPENAI_KEY'], disallowed_special=()),
         collection=MONGODB_COLLECTION,
         index_name=ATLAS_VECTOR_SEARCH_INDEX_NAME,
     )

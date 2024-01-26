@@ -1,7 +1,7 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import certifi 
-uri = "mongodb+srv://rehaan:BK9MEnBVz59CZbkB@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
+uri = "mongodb+srv://rehaan:<password>@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
 
 # Create a new client and connect to the server
 client = MongoClient(uri, tlsCAFile=certifi.where())
@@ -36,7 +36,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 # insert the documents in MongoDB Atlas with their embedding
 vector_search = MongoDBAtlasVectorSearch.from_documents(
     documents=docs,
-    embedding=OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key="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", disallowed_special=()),
+    embedding=OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key="<KEY-HERE>", disallowed_special=()),
     collection=MONGODB_COLLECTION,
     index_name=ATLAS_VECTOR_SEARCH_INDEX_NAME,
 )
