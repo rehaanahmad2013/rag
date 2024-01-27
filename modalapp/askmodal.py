@@ -1,7 +1,7 @@
-# code taken from vllm modal tutorial 
-
 import os
-from modal import Image, Secret, Stub, method
+from modal import Image, Secret, Stub, method, web_endpoint
+from typing import Dict
+
 
 MONGO_PASSWORD = os.getenv('MONGO_PASSWORD')
 OPENAI_KEY = os.getenv("OPENAI_KEY")
@@ -12,6 +12,12 @@ COLLECTION_NAME = "modalcollect_300"
 
 ADDITIONAL_CONTEXT = 200
 TOP_K = 3
+
+stub = Stub()
+
+langchain_image = Image.debian_slim(
+    python_version="3.10"
+).pip_install("langchain==0.1.3", "openai==1.9.0", "tiktoken", "pymongo", "certifi", "langchain-openai")
 
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
@@ -39,15 +45,9 @@ image = (
     )
 )
 
-langchain_image = Image.debian_slim(
-    python_version="3.10"
-).pip_install("langchain==0.1.3", "openai==1.9.0", "tiktoken", "pymongo", "certifi", "langchain-openai")
-
-
-stub = Stub("example-vllm-inference", image=image)
 
 # The `vLLM` library allows the code to remain quite clean.
-@stub.cls(gpu="A100", secret=Secret.from_name("huggingface-secret"))
+@stub.cls(gpu="A100", secret=Secret.from_name("huggingface-secret"), image=image)
 class Model:
     def __enter__(self):
         from vllm import LLM
@@ -76,12 +76,11 @@ class Model:
         )
 
         result = self.llm.generate(prompts, sampling_params)
-        for output in result:
-            print(output.outputs[0].text)
+        return result[0].outputs[0].text
 
 
 @stub.function(image=langchain_image, secret=Secret.from_name("takehome"))
-async def retrievedoc(query: str) -> set[str]:
+def retrievedoc(query: str) -> set[str]:
     uri = "mongodb+srv://rehaan:" + os.environ['MONGO_PASSWORD'] + "@vecdb.ppczayz.mongodb.net/?retryWrites=true&w=majority"
     DB_NAME = "vecdb"
     ATLAS_VECTOR_SEARCH_INDEX_NAME = "vector_index"
@@ -99,13 +98,15 @@ async def retrievedoc(query: str) -> set[str]:
     results = vector_search.similarity_search(query, k=TOP_K)
     return results
 
-# ## Run the model
-@stub.local_entrypoint()
-def main():
-    model = Model()
-    # questions = "If I want to treat exceptions as successful results and aggregate them in the results list, what do I pass in?"
-    questions = "How do I use modal serve to serve a web endpoint?"
-    results = retrievedoc.remote(questions)
+model = Model()
+
+@stub.function(image=langchain_image)
+@web_endpoint(method="POST")
+def f(item: Dict):
+    
+    question = item['question']
+
+    results = retrievedoc.remote(question)
     contextStr = ""
     
     for i in range(0, len(results)):
@@ -119,13 +120,14 @@ def main():
               + 'We will provide sections of Modal Labs documentation to help you answer the question. Note that not all of this information may be relevant for answering the question. \n'
               + 'Documentation: \n'
               + context, 
-                questions
+                question
               )] 
     
-    model.generate.remote(mistralq)
+    result = model.generate.remote(mistralq)
+    result += "\n"
+    result += "Some relevant links: \n"
+    for i in range(0, len(results)): 
+        result += ("[" + str(i) + "] " + results[i].metadata['link']) 
 
-    print("Some relevant links: ")
-    for i in range(0, len(results)):
-        print("[" + str(i) + "] " + results[i].metadata['link'])
-
-    
+    print(result)
+    return {"response": result}

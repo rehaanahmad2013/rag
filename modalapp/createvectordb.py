@@ -56,6 +56,20 @@ async def get_content(url: str) -> set[str]:
 
     return (html, url)
 
+
+@stub.function()
+def scrape():
+    links_of_interest = ["https://modal.com/docs/examples", "https://modal.com/docs/guide", "https://modal.com/docs/reference"]
+
+    returnLinks = []
+    for links in list_links.map(links_of_interest):
+        for link in links:
+            if "modal.com/docs/" in link:
+                if link not in returnLinks:
+                    returnLinks.append(link)
+
+    return returnLinks
+
 @stub.function(image=langchain_image, secret=modal.Secret.from_name("takehome"))
 async def uploadchunk(html: tuple) -> set[str]:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -92,20 +106,6 @@ async def uploadchunk(html: tuple) -> set[str]:
     )
 
     return True
-
-@stub.function()
-def scrape():
-    links_of_interest = ["https://modal.com/docs/examples", "https://modal.com/docs/guide", "https://modal.com/docs/reference"]
-
-    returnLinks = []
-    for links in list_links.map(links_of_interest):
-        for link in links:
-            if "modal.com/docs/" in link:
-                if link not in returnLinks:
-                    returnLinks.append(link)
-
-    return returnLinks
-
 
 @stub.local_entrypoint()
 def run():
