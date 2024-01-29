@@ -20,7 +20,7 @@ playwright_image = modal.Image.debian_slim(
     "playwright install chromium",
 )
 
-CHUNK_SIZE = 300
+CHUNK_SIZE = 500
 
 @stub.function(image=playwright_image)
 async def list_links(url: str) -> set[str]:
@@ -54,8 +54,10 @@ async def get_content(url: str) -> set[str]:
     except:
         html = ""
 
-    return (html, url)
-
+    if len(html) > 0:
+        uploadpage.remote((html, url))
+    
+    return True
 
 @stub.function()
 def scrape():
@@ -71,7 +73,7 @@ def scrape():
     return returnLinks
 
 @stub.function(image=langchain_image, secret=modal.Secret.from_name("takehome"))
-async def uploadchunk(html: tuple) -> set[str]:
+async def uploadpage(html: tuple) -> set[str]:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_openai import OpenAIEmbeddings
     from pymongo.mongo_client import MongoClient
@@ -107,14 +109,24 @@ async def uploadchunk(html: tuple) -> set[str]:
 
     return True
 
+
 @stub.local_entrypoint()
 def run():
     docLinks = scrape.remote()
 
-    html_arr = []
     for html in get_content.map(docLinks):
-        if len(html[0]) > 0:
-            html_arr.append(html)
-
-    for x in uploadchunk.map(html_arr):
         pass
+
+
+# @stub.local_entrypoint()
+# def run():
+#     docLinks = scrape.remote()
+
+#     html_arr = []
+#     for html in get_content.map(docLinks):
+#         pass
+#         if len(html[0]) > 0:
+#             html_arr.append(html)
+
+#     for x in uploadpage.map(html_arr):
+#         pass
